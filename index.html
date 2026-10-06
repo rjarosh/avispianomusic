@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Avi's Music Maker</title>
+<title>Primer Piano Maker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
 :root{--bg:#f6f5f1;--fg:#222;--card:#fff;--line:#d8d5cc;--accent:#2a6f97;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -28,12 +28,10 @@ code{background:var(--bg);padding:1px 4px;border-radius:3px}
 #page{overflow-x:auto}
 #page svg{width:100%;height:auto;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.25);display:block;max-width:900px}
 
-#err{color:#c0392b;font-size:13px;min-height:1em}
-
 /* Printed pages */
 .print-page{
   width:816px;
-  height:1055px;
+  height:1056px;
   background:#fff;
 }
 
@@ -44,20 +42,15 @@ code{background:var(--bg);padding:1px 4px;border-radius:3px}
 
 @media print{
 
-  header,#ui{
-    display:none;
-  }
+  header,#ui{display:none}
 
   main{
     display:block;
     padding:0;
-    margin:0;
   }
 
   #page{
     overflow:visible;
-    margin:0;
-    padding:0;
   }
 
   #page svg{
@@ -67,27 +60,31 @@ code{background:var(--bg);padding:1px 4px;border-radius:3px}
 
   .print-page{
     width:816px;
-    height:1055px;
-    overflow:hidden;
+    height:1056px;
+  }
+
+  .print-page + .print-page{
+    break-before:page;
+    page-break-before:always;
   }
 
   @page{
-    size:8.5in 11in;
     margin:0;
   }
 
 }
 </style>
 </head>
+
 <body>
 
 <header>
-<h1>🎹 Avi's Piano Music Maker</h1>
+<h1>🎹 Primer Piano Maker</h1>
 <label>
   Example
   <select id="ex">
     <option value="nick">Jurassic Park</option>
-    <option value="rhythm">Rhythm demo (eighths, dots)</option>
+    <option value="rhythm">Another Example</option>
   </select>
 </label>
 </header>
@@ -103,6 +100,10 @@ code{background:var(--bg);padding:1px 4px;border-radius:3px}
 <div class="row">
 <label><input type="checkbox" id="fing" checked> Fingers</label>
 <label><input type="checkbox" id="lett" checked> Letters</label>
+</div>
+
+<div class="row">
+<label><input type="checkbox" id="hands"> R.H. / L.H.</label>
 </div>
 
 <div class="row">
@@ -314,32 +315,19 @@ function parseHand(s,oct){
         return;
       }
 
-      /*
-        Note syntax:
-
-        C
-        C5
-        C-2
-        C/2       (old syntax)
-        C:2
-        C:2~
-        C:2L
-        C-2:2L
-      */
-
       const r=tok.match(
         /^([Hh]?)([Ll]?)([A-Ga-gRr])(\d)?(?:[-\/](\d))?(?::(\d+)(\.)?)?(~)?$/
       );
 
       if(!r)return;
 
-      const hiddenRest=!!r[1];
-      const hideLetter=!!r[2];
-      const L=r[3].toUpperCase();
-
       let d=r[6]?4/+r[6]:1;
 
       if(r[7])d*=1.5;
+
+      const hiddenRest=!!r[1];
+      const hideLetter=!!r[2];
+      const L=r[3].toUpperCase();
 
       if(L!=='R'){
 
@@ -399,7 +387,6 @@ function parse(text){
 
     const line=raw.trim();
 
-    /* Manual printed page break */
     if(/^PAGEBREAK$/i.test(line)){
 
       cur=null;
@@ -532,7 +519,7 @@ function note(p,hand,o,beamed){
 
     s+=`<line x1="${sx}" x2="${sx}" y1="${y}" y2="${tip}" stroke="#000" stroke-width="1.4"/>`;
 
-    /* Standalone eighth note flag */
+    /* Standalone eighth-note flag */
     if(n.d<1){
 
       if(up){
@@ -705,7 +692,7 @@ function repeatEndBar(x,top,bot){
    SYSTEM
    ========================================================= */
 
-function system(sys,y,fin,o,hasLH){
+function system(sys,y,fin,o,hasLH,showHands){
 
   const rh=parseHand(sys.rh,4);
   const lh=parseHand(sys.lh,3);
@@ -761,6 +748,28 @@ function system(sys,y,fin,o,hasLH){
 
   let s='',
       mx=X0;
+
+
+  /* ---------------------------------------------------------
+     Hand labels
+     --------------------------------------------------------- */
+
+  if(showHands){
+
+    s+=`<text x="38" y="${yR+5}" text-anchor="start"
+      font-family="Helvetica,Arial,sans-serif"
+      font-weight="700" font-size="13" fill="#222">R.H.</text>`;
+
+    if(lh){
+
+      s+=`<text x="38" y="${yL+5}" text-anchor="start"
+        font-family="Helvetica,Arial,sans-serif"
+        font-weight="700" font-size="13" fill="#222">L.H.</text>`;
+
+    }
+
+  }
+
 
   const evs=[];
 
@@ -1126,6 +1135,8 @@ function render(){
     lett:$('lett').checked
   };
 
+  const showHands=$('hands').checked;
+
   const hasLH=
     systems.some(
       s=>s.lh&&s.lh.trim()
@@ -1165,7 +1176,8 @@ function render(){
       y,
       fin&&i===systems.length-1,
       o,
-      hasLH
+      hasLH,
+      showHands
     );
 
     pageContent+=r.svg;
@@ -1180,12 +1192,12 @@ function render(){
 
   if(pageContent||!pages.length){
 
-  pages.push({
-    content:pageContent,
-    H:1055
-  });
+    pages.push({
+      content:pageContent,
+      H:Math.max(1056,y+70)
+    });
 
-}
+  }
 
 
   /*
@@ -1268,11 +1280,6 @@ function svgStr(){
 
   }
 
-  /*
-    SVG export with multiple manual pages:
-    combine all page SVGs vertically into one SVG.
-  */
-
   let totalH=0,
       contents='';
 
@@ -1318,7 +1325,7 @@ $('ex').onchange=()=>{
 };
 
 
-['src','fing','lett'].forEach(id=>{
+['src','fing','lett','hands'].forEach(id=>{
 
   $(id).addEventListener(
     'input',
