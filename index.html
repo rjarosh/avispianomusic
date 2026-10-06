@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Avi's Music Maker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f6f5f1;--fg:#222;--card:#fff;--line:#d8d5cc;--accent:#2a6f97;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1e20;--fg:#e8e6e1;--card:#2a2b2e;--line:#44464a;--accent:#6bb3d9}}
+:root[data-theme="dark"]{--bg:#1d1e20;--fg:#e8e6e1;--card:#2a2b2e;--line:#44464a;--accent:#6bb3d9}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+h1{margin:0;font-size:18px}
+main{display:grid;grid-template-columns:minmax(300px,390px) 1fr;gap:16px;padding:16px 20px;align-items:start}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+textarea{width:100%;height:360px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:8px;resize:vertical}
+select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0}
+button{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:7px 12px;font:inherit;cursor:pointer}
+label{display:flex;gap:5px;align-items:center}
+details{margin-top:10px;font-size:13px}
+code{background:var(--bg);padding:1px 4px;border-radius:3px}
+
+#page{overflow-x:auto}
+#page svg{width:100%;height:auto;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.25);display:block;max-width:900px}
+
+#err{color:#c0392b;font-size:13px;min-height:1em}
+
+/* Printed pages */
+.print-page{
+  width:816px;
+  height:1055px;
+  background:#fff;
+}
+
+.print-page + .print-page{
+  break-before:page;
+  page-break-before:always;
+}
+
+@media print{
+
+  header,#ui{
+    display:none;
+  }
+
+  main{
+    display:block;
+    padding:0;
+    margin:0;
+  }
+
+  #page{
+    overflow:visible;
+    margin:0;
+    padding:0;
+  }
+
+  #page svg{
+    box-shadow:none;
+    max-width:none;
+  }
+
+  .print-page{
+    width:816px;
+    height:1055px;
+    overflow:hidden;
+  }
+
+  @page{
+    size:8.5in 11in;
+    margin:0;
+  }
+
+}
+</style>
+</head>
+<body>
+
+<header>
+<h1>🎹 Avi's Piano Music Maker</h1>
+<label>
+  Example
+  <select id="ex">
+    <option value="nick">Jurassic Park</option>
+    <option value="rhythm">Rhythm demo (eighths, dots)</option>
+  </select>
+</label>
+</header>
+
+<main>
+
+<div id="ui" class="card">
+
+<textarea id="src" spellcheck="false"></textarea>
+
+<div id="err"></div>
+
+<div class="row">
+<label><input type="checkbox" id="fing" checked> Fingers</label>
+<label><input type="checkbox" id="lett" checked> Letters</label>
+</div>
+
+<div class="row">
+<button id="bPrint">Print / PDF</button>
+<button id="bSvg">SVG</button>
+<button id="bPng">PNG</button>
+</div>
+
+<details>
+<summary>Syntax</summary>
+
+<p>
+<code>Title:</code>
+<code>Subtitle:</code>
+<code>Composer:</code>
+<code>Footer:</code>
+set the header and footer.
+Separate systems (lines of music) with a blank line.
+Each has optional <code>RH:</code>, <code>LH:</code>, <code>LYR:</code> lines.
+A line with just <code>!</code> adds a final double bar.
+</p>
+
+<p>
+<b>Page breaks:</b>
+put <code>PAGEBREAK</code> on its own line to start the following music on a new printed page.
+</p>
+
+<p>
+<b>Notes:</b>
+<code>E</code>
+<code>D5</code>
+<code>A3</code>
+(octave optional: RH defaults to 4, LH to 3).
+Finger numbers can be added with a hyphen:
+<code>C-1</code>
+<code>D-2</code>
+<code>E-3</code>.
+The older <code>C/1</code> syntax is also supported.
+Barlines: <code>|</code>.
+</p>
+
+<p>
+<b>Repeats:</b>
+<code>!:</code> starts a repeat at the beginning of a measure.
+<code>:!</code> ends a repeat at the end of a measure.
+For example:
+<code>RH: C D E F :!</code>
+</p>
+
+<p>
+<b>Rests:</b>
+<code>R:1</code> whole,
+<code>R:2</code> half,
+<code>R:4</code> quarter,
+<code>R:8</code> eighth;
+dotted with a dot, e.g. <code>R:4.</code>.
+A rest that fills the bar is centered.
+Prefix a rest with <code>H</code> to hide it while keeping its rhythmic space,
+e.g. <code>HR:4</code>, <code>HR:2</code>.
+</p>
+
+<p>
+<b>Hide note letters:</b>
+add <code>L</code> to the end of a note.
+For example,
+<code>C LC LC C</code>
+shows the C on the first and last notes but hides the letters on the two middle notes.
+This also works with durations and ties, e.g.
+<code>E:2L</code>
+or
+<code>E:2~L</code>.
+</p>
+
+<p>
+<b>Ties:</b>
+put <code>~</code> after a note to tie it to the next note of the same pitch,
+even across a barline:
+<code>E:2~ E:2</code>.
+</p>
+
+<p>
+<b>Lengths:</b>
+<code>:1</code> whole,
+<code>:2</code> half,
+<code>:4</code> quarter (default),
+<code>:8</code> eighth.
+Add <code>.</code> to dot:
+<code>:2.</code> dotted half (3 beats),
+<code>:4.</code> dotted quarter (1½).
+Two eighths together on a beat
+(<code>C:8 D:8</code>)
+are beamed automatically.
+</p>
+
+<p>
+<b>Lyrics:</b>
+one syllable per note in time order, across <i>both</i> hands
+(notes that sound together share one syllable).
+<code>-</code> joins syllables,
+<code>_</code> skips a note.
+To put lyrics on one hand only, use
+<code>LYR RH:</code>
+or
+<code>LYR LH:</code>
+instead.
+</p>
+
+</details>
+</div>
+
+<div id="page"></div>
+
+</main>
+
+<script>
+
+const EX={
+
+nick:`Title: Jurassic Park
+Subtitle: בשביל אבי
+Composer: John Williams
+Footer: made with Avi's Piano Music Maker
+
+RH: C-1    | C:1~ | LC:2 LC
+LH: R4 B-1 | HR:1 | HR:2. B
+
+RH: C:1~ | LC:2 LC | LC-1:2. D-2
+LH: HR:1  |HR:2. B | HR:1
+
+RH: D:2. F-4 | F:1~ | LF:2 E-3 C-1
+LH: HR:1  |HR:1 | HR:1
+
+RH: D-2:2. R4 | R:4 R:4 E-3 C-1 | D-2:2. R4
+LH: HR:2. B-1  |G-3:2 | HR:2. B
+pagebreak
+RH: R R G-5 C | F-4:2. E | LE:2. D |
+LH: G-3:2 HR:2 |HR:1 | HR:1
+
+RH: D:1  | C:2 HR:2 | C-1:1 :!
+LH: HR:1 | HR:2 B:2 | G-3:1 `,
+
+rhythm:`Title: Example
+
+RH: !: C-1:8 D:8 LE LF:2 | G C G:2
+LH: R4 R R R | G-4:2 C4:2 :!
+LYR: Here I have two mea - sures - now
+
+`
+};
+
+
+const $=id=>document.getElementById(id);
+
+const STEP={
+  C:0,
+  D:1,
+  E:2,
+  F:3,
+  G:4,
+  A:5,
+  B:6
+};
+
+const esc=s=>s.replace(
+  /[&<>"]/g,
+  c=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;'
+  }[c])
+);
+
+const SW=9,
+      RX=10,
+      RY=8,
+      STEM=36;
+
+
+/* =========================================================
+   PARSE HAND
+   ========================================================= */
+
+function parseHand(s,oct){
+
+  if(!s)return null;
+
+  return s.split('|').map(m=>{
+
+    let t=0;
+
+    const notes=[],
+          rests=[];
+
+    let barStart=null,
+        barEnd=null;
+
+    m.trim().split(/\s+/).filter(Boolean).forEach(tok=>{
+
+      /* Repeat end */
+      if(tok===':!'){
+        barEnd='repeat-end';
+        return;
+      }
+
+      /* Repeat start */
+      if(tok==='!:'){
+        barStart='repeat-start';
+        return;
+      }
+
+      /*
+        Note syntax:
+
+        C
+        C5
+        C-2
+        C/2       (old syntax)
+        C:2
+        C:2~
+        C:2L
+        C-2:2L
+      */
+
+      const r=tok.match(
+        /^([Hh]?)([Ll]?)([A-Ga-gRr])(\d)?(?:[-\/](\d))?(?::(\d+)(\.)?)?(~)?$/
+      );
+
+      if(!r)return;
+
+      const hiddenRest=!!r[1];
+      const hideLetter=!!r[2];
+      const L=r[3].toUpperCase();
+
+      let d=r[6]?4/+r[6]:1;
+
+      if(r[7])d*=1.5;
+
+      if(L!=='R'){
+
+        notes.push({
+          L,
+          steps:STEP[L]+7*((r[4]?+r[4]:oct)-4),
+          f:r[5],
+          d,
+          t,
+          dot:!!r[7],
+          tie:!!r[8],
+          hideLetter
+        });
+
+      }else{
+
+        rests.push({
+          d,
+          t,
+          dot:!!r[7],
+          hidden:hiddenRest
+        });
+
+      }
+
+      t+=d;
+
+    });
+
+    return {
+      notes,
+      rests,
+      beats:t,
+      barStart,
+      barEnd
+    };
+
+  }).filter(m=>m.beats>0 || m.barStart || m.barEnd);
+
+}
+
+
+/* =========================================================
+   PARSE DOCUMENT
+   ========================================================= */
+
+function parse(text){
+
+  const hdr={},
+        systems=[];
+
+  let cur=null,
+      fin=false,
+      pendingPageBreak=false;
+
+  text.split('\n').forEach(raw=>{
+
+    const line=raw.trim();
+
+    /* Manual printed page break */
+    if(/^PAGEBREAK$/i.test(line)){
+
+      cur=null;
+      pendingPageBreak=true;
+      return;
+
+    }
+
+    if(!line){
+      cur=null;
+      return;
+    }
+
+    if(line==='!'){
+      fin=true;
+      return;
+    }
+
+    const m=line.match(
+      /^(title|subtitle|composer|footer|rh|lh|lyr\s*rh|lyr\s*lh|lyr|l)\s*:\s*(.*)$/i
+    );
+
+    if(!m)return;
+
+    const k=m[1].toLowerCase().replace(/\s/g,'');
+
+    if(['title','subtitle','composer','footer'].includes(k)){
+      hdr[k]=m[2];
+      return;
+    }
+
+    if(!cur){
+
+      cur={
+        pageBreakBefore:pendingPageBreak
+      };
+
+      pendingPageBreak=false;
+
+      systems.push(cur);
+
+    }
+
+    if(k==='rh'||k==='lh'){
+      cur[k]=m[2];
+    }
+    else{
+      cur.lyr=m[2];
+      cur.lyrHand=
+        k==='lyrrh' ? 'R' :
+        k==='lyrlh' ? 'L' :
+        null;
+    }
+
+  });
+
+  return {
+    hdr,
+    systems,
+    fin
+  };
+
+}
+
+
+/* =========================================================
+   FLAGS
+   ========================================================= */
+
+function flag(sx,tip,up){
+
+  const p=`M${sx} ${tip}c1 7 11 9 21c-1-7-7-9-9-10z`;
+
+  return up
+    ? `<path d="${p}" fill="#000"/>`
+    : `<path d="${p}" fill="#000" transform="translate(0 ${2*tip}) scale(1 -1)"/>`;
+
+}
+
+
+/* =========================================================
+   BEAMS
+   ========================================================= */
+
+function beam(a,b,hand){
+
+  const up=hand==='R',
+        off=up?RX-.5:-RX+.5;
+
+  const x1=a.x+off,
+        x2=b.x+off;
+
+  const tip=up
+    ?Math.min(a.y,b.y)-STEM
+    :Math.max(a.y,b.y)+STEM;
+
+  let s=`<line x1="${x1}" x2="${x1}" y1="${a.y}" y2="${tip}" stroke="#000" stroke-width="1.4"/>
+<line x1="${x2}" x2="${x2}" y1="${b.y}" y2="${tip}" stroke="#000" stroke-width="1.4"/>`;
+
+  const y0=up?tip:tip-5;
+
+  return s+`<rect x="${x1-.7}" y="${y0}" width="${x2-x1+1.4}" height="5" fill="#000"/>`;
+
+}
+
+
+/* =========================================================
+   NOTE
+   ========================================================= */
+
+function note(p,hand,o,beamed){
+
+  const n=p.nt,
+        x=p.x,
+        y=p.y;
+
+  let s='';
+
+  if(n.d<4&&!beamed){
+
+    const up=hand==='R';
+
+    const sx=up
+      ?x+RX-.5
+      :x-RX+.5;
+
+    const tip=up
+      ?y-STEM
+      :y+STEM;
+
+    s+=`<line x1="${sx}" x2="${sx}" y1="${y}" y2="${tip}" stroke="#000" stroke-width="1.4"/>`;
+
+    /* Standalone eighth note flag */
+    if(n.d<1){
+
+      if(up){
+
+        s+=`<path d="M${sx} ${tip}
+                     Q${sx+12} ${tip+5} ${sx+11} ${tip+13}
+                     Q${sx+7} ${tip+8} ${sx} ${tip+7}
+                     Z"
+               fill="#000"/>`;
+
+      }
+      else{
+
+        s+=`<path d="M${sx} ${tip}
+                     Q${sx-12} ${tip-5} ${sx-11} ${tip-13}
+                     Q${sx-7} ${tip-8} ${sx} ${tip-7}
+                     Z"
+               fill="#000"/>`;
+
+      }
+
+    }
+
+  }
+
+  const open=n.d>=2;
+
+  s+=`<ellipse cx="${x}" cy="${y}" rx="${RX}" ry="${RY}" fill="${open?'#fff':'#000'}" stroke="#000" stroke-width="2"/>`;
+
+  if(o.lett&&!n.hideLetter){
+
+    s+=`<text x="${x}" y="${y+4}" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-weight="700" font-size="11" fill="${open?'#000':'#fff'}">${n.L}</text>`;
+
+  }
+
+  if(n.dot){
+
+    s+=`<circle cx="${x+RX+7}" cy="${y}" r="2.3" fill="#000"/>`;
+
+  }
+
+  if(o.fing&&n.f){
+
+    s+=`<text x="${x}" y="${hand==='R'?y+RY+14:y-RY-5}" text-anchor="middle" font-family="Georgia,serif" font-size="13" fill="#000">${n.f}</text>`;
+
+  }
+
+  return s;
+
+}
+
+
+/* =========================================================
+   REST
+   ========================================================= */
+
+function rest(r,x,y){
+
+  if(r.hidden)return '';
+
+  const b=r.dot?r.d/1.5:r.d;
+
+  let s='';
+
+  const bar=yy=>
+    `<line x1="${x-11}" x2="${x+11}" y1="${yy}" y2="${yy}" stroke="#000" stroke-width="1.4"/>`;
+
+  if(b>=4){
+
+    s+=bar(y-3)+
+      `<rect x="${x-7}" y="${y-3}" width="14" height="6" fill="#000"/>`;
+
+  }
+  else if(b>=2){
+
+    s+=bar(y+3)+
+      `<rect x="${x-7}" y="${y-3}" width="14" height="6" fill="#000"/>`;
+
+  }
+  else if(b>=1){
+
+    s+=`<path transform="translate(${x} ${y})" d="M-3 -12L3 -5L-3 2L2 8C-3 7 -5 11 -2 14" fill="none" stroke="#000" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+
+  }
+  else{
+
+    s+=`<g transform="translate(${x} ${y})"><circle cx="-4" cy="-4" r="2.7"/><path d="M-4 -4Q2 -1 4 -8M4 -8L-3 10" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/></g>`;
+
+  }
+
+  if(r.dot){
+
+    s+=`<circle cx="${x+13}" cy="${y-4}" r="2.3" fill="#000"/>`;
+
+  }
+
+  return s;
+
+}
+
+
+/* =========================================================
+   TIE
+   ========================================================= */
+
+function tie(xa,xb,y,hand){
+
+  const sg=hand==='R'?1:-1;
+
+  const yb=hand==='R'
+    ?y+RY+1
+    :y-RY-1;
+
+  const m=(xa+xb)/2;
+
+  return `<path d="M${xa} ${yb}Q${m} ${yb+sg*13} ${xb} ${yb}Q${m} ${yb+sg*7} ${xa} ${yb}Z" fill="#000"/>`;
+
+}
+
+
+/* =========================================================
+   BRACE
+   ========================================================= */
+
+function brace(top,bot,R){
+
+  const h=bot-top,
+        m=(top+bot)/2,
+        M=R-9,
+        L=R-17;
+
+  return `<path d="M${R} ${top}C${R-7} ${top+h*.03} ${M} ${top+h*.08} ${M} ${top+h*.22}L${M} ${m-h*.14}C${M} ${m-h*.05} ${L+4} ${m-h*.03} ${L} ${m}C${L+4} ${m+h*.03} ${M} ${m+h*.05} ${M} ${m+h*.14}L${M} ${bot-h*.22}C${M} ${bot-h*.08} ${R-7} ${bot-h*.03} ${R} ${bot}" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round"/>`;
+
+}
+
+
+/* =========================================================
+   REPEAT BARLINES
+   ========================================================= */
+
+function repeatStartBar(x,top,bot){
+
+  const mid=(top+bot)/2;
+
+  return `
+    <line x1="${x-6}" x2="${x-6}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="1.4"/>
+    <line x1="${x}" x2="${x}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="1.4"/>
+    <circle cx="${x+8}" cy="${mid-9}" r="2.5" fill="#000"/>
+    <circle cx="${x+8}" cy="${mid+9}" r="2.5" fill="#000"/>
+  `;
+
+}
+
+
+function repeatEndBar(x,top,bot){
+
+  const mid=(top+bot)/2;
+
+  return `
+    <circle cx="${x-18}" cy="${mid-9}" r="2.5" fill="#000"/>
+    <circle cx="${x-18}" cy="${mid+9}" r="2.5" fill="#000"/>
+    <line x1="${x-10}" x2="${x-10}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="1.4"/>
+    <line x1="${x-4}" x2="${x-4}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="1.4"/>
+  `;
+
+}
+
+
+/* =========================================================
+   SYSTEM
+   ========================================================= */
+
+function system(sys,y,fin,o,hasLH){
+
+  const rh=parseHand(sys.rh,4);
+  const lh=parseHand(sys.lh,3);
+
+  const n=Math.max(
+    rh?rh.length:0,
+    lh?lh.length:0
+  );
+
+  if(!n)return {svg:'',h:0};
+
+  const bm=[];
+
+  for(let i=0;i<n;i++){
+
+    bm.push(
+      Math.max(
+        rh&&rh[i]?rh[i].beats:0,
+        lh&&lh[i]?lh[i].beats:0,
+        1
+      )
+    );
+
+  }
+
+  const all=h=>
+    h?h.flatMap(m=>m.notes.map(x=>x.steps)):[];
+
+  const rs=all(rh),
+        ls=all(lh);
+
+  const rhMax=Math.max(2,...rs),
+        rhMin=Math.min(0,...rs),
+        lhMax=Math.max(0,...ls),
+        lhMin=ls.length?Math.min(...ls):0;
+
+  const yR=y+6+STEM+rhMax*SW;
+  const yLy=yR+34-rhMin*SW;
+  const yL=yLy+22+lhMax*SW;
+
+  const top=y;
+
+  const bot=lh
+    ?Math.max(yL-lhMin*SW+STEM+4,yL+38)
+    :yLy+14;
+
+  const X0=100,
+        W=650;
+
+  const tot=bm.reduce((a,b)=>a+b+1,0);
+
+  const u=Math.min(W/tot,50);
+
+  let s='',
+      mx=X0;
+
+  const evs=[];
+
+  const placed={
+    R:[],
+    L:[]
+  };
+
+
+  /* ---------------------------------------------------------
+     Draw each measure
+     --------------------------------------------------------- */
+
+  for(let i=0;i<n;i++){
+
+    const w=(bm[i]+1)*u;
+
+    const repeatStart =
+      (rh&&rh[i]&&rh[i].barStart==='repeat-start') ||
+      (lh&&lh[i]&&lh[i].barStart==='repeat-start');
+
+    const repeatEnd =
+      (rh&&rh[i]&&rh[i].barEnd==='repeat-end') ||
+      (lh&&lh[i]&&lh[i].barEnd==='repeat-end');
+
+
+    if(repeatStart){
+
+      s+=repeatStartBar(mx,top,bot);
+
+    }
+    else{
+
+      s+=`<line x1="${mx}" x2="${mx}" y1="${top}" y2="${bot}" stroke="#555" stroke-width="1"/>`;
+
+    }
+
+
+    const place=(h,hand)=>{
+
+      if(!h||!h[i])return;
+
+      const pts=h[i].notes.map(nt=>({
+
+        nt,
+
+        x:mx+u*(.5+nt.t+.35),
+
+        y:(hand==='R'?yR:yL)-nt.steps*SW
+
+      }));
+
+      const used=new Set();
+
+
+      for(let k=0;k<pts.length-1;k++){
+
+        const a=pts[k],
+              b=pts[k+1];
+
+        if(
+          a.nt.d===.5 &&
+          b.nt.d===.5 &&
+          Number.isInteger(a.nt.t) &&
+          b.nt.t===a.nt.t+.5
+        ){
+
+          used.add(k);
+          used.add(k+1);
+
+          s+=beam(a,b,hand);
+
+          k++;
+
+        }
+
+      }
+
+
+      pts.forEach((p,k)=>{
+
+        s+=note(
+          p,
+          hand,
+          o,
+          used.has(k)
+        );
+
+        evs.push({
+          i,
+          t:p.nt.t,
+          x:p.x,
+          h:hand
+        });
+
+        placed[hand].push(p);
+
+      });
+
+
+      h[i].rests.forEach(r=>{
+
+        const cx=
+          r.d>=bm[i]-1e-6
+            ?mx+w/2
+            :mx+u*(.5+r.t+.35);
+
+        s+=rest(
+          r,
+          cx,
+          hand==='R'
+            ?yR-3*SW
+            :yL+2*SW
+        );
+
+      });
+
+    };
+
+
+    place(rh,'R');
+    place(lh,'L');
+
+
+    mx+=w;
+
+
+    if(repeatEnd){
+
+      s+=repeatEndBar(mx,top,bot);
+
+    }
+
+    else if(i===n-1){
+
+    }
+    else{
+
+      s+=`<line x1="${mx}" x2="${mx}" y1="${top}" y2="${bot}" stroke="#555" stroke-width="1"/>`;
+
+    }
+
+  }
+
+
+  /* ---------------------------------------------------------
+     Ties
+     --------------------------------------------------------- */
+
+  ['R','L'].forEach(hand=>{
+
+    const a=placed[hand];
+
+    a.forEach((p,k)=>{
+
+      if(!p.nt.tie)return;
+
+      const q=a[k+1];
+
+      if(q&&q.nt.steps===p.nt.steps){
+
+        s+=tie(
+          p.x+RX,
+          q.x-RX,
+          p.y,
+          hand
+        );
+
+      }
+
+      else if(!q){
+
+        s+=tie(
+          p.x+RX,
+          Math.min(p.x+50,mx-6),
+          p.y,
+          hand
+        );
+
+      }
+
+    });
+
+  });
+
+
+  /* ---------------------------------------------------------
+     Final barline
+     --------------------------------------------------------- */
+
+  if(fin){
+
+    s+=`<line x1="${mx-2}" x2="${mx-2}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="5"/>
+<line x1="${mx-9}" x2="${mx-9}" y1="${top}" y2="${bot}" stroke="#000" stroke-width="1"/>`;
+
+  }
+  else{
+
+    const lastRH=rh&&rh[n-1];
+    const lastLH=lh&&lh[n-1];
+
+    const lastRepeatEnd=
+      (lastRH&&lastRH.barEnd==='repeat-end') ||
+      (lastLH&&lastLH.barEnd==='repeat-end');
+
+    if(!lastRepeatEnd){
+
+      s+=`<line x1="${mx}" x2="${mx}" y1="${top}" y2="${bot}" stroke="#555" stroke-width="1"/>`;
+
+    }
+
+  }
+
+
+  if(hasLH){
+
+    s+=brace(top,bot,90);
+
+  }
+
+
+  /* ---------------------------------------------------------
+     Lyrics
+     --------------------------------------------------------- */
+
+  if(sys.lyr){
+
+    const xs=[];
+
+    evs
+      .filter(e=>!sys.lyrHand||e.h===sys.lyrHand)
+      .sort((a,b)=>a.i-b.i||a.t-b.t)
+      .forEach(e=>{
+
+        const last=xs[xs.length-1];
+
+        if(
+          !last ||
+          last.i!==e.i ||
+          Math.abs(last.t-e.t)>1e-6
+        ){
+
+          xs.push(e);
+
+        }
+
+      });
+
+
+    const syl=[];
+
+    sys.lyr
+      .split(/\s+/)
+      .filter(Boolean)
+      .forEach(t=>{
+
+        if(t==='|')return;
+
+        if(t==='-'){
+
+          if(syl.length)syl[syl.length-1].hy=true;
+
+        }
+        else{
+
+          syl.push({
+            t:t==='_'?'':t
+          });
+
+        }
+
+      });
+
+
+    syl.forEach((sy,i)=>{
+
+      if(!xs[i])return;
+
+      s+=`<text x="${xs[i].x}" y="${yLy}" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="14" fill="#222">${esc(sy.t)}</text>`;
+
+      if(sy.hy&&xs[i+1]){
+
+        s+=`<text x="${(xs[i].x+xs[i+1].x)/2}" y="${yLy}" text-anchor="middle" font-family="Georgia,serif" font-size="14" fill="#222">-</text>`;
+
+      }
+
+    });
+
+  }
+
+
+  return {
+    svg:s,
+    h:bot-y+26
+  };
+
+}
+
+
+/* =========================================================
+   PAGE SVG
+   ========================================================= */
+
+function makePage(content,H,hdr,showHeader,showFooter){
+
+  let s='';
+
+  if(showHeader){
+
+    s+=`<text x="408" y="75" text-anchor="middle" font-family="Georgia,serif" font-size="42" fill="#111">${esc(hdr.title||'')}</text>`;
+
+    if(hdr.subtitle){
+
+      s+=`<text x="408" y="108" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="20" fill="#222">${esc(hdr.subtitle)}</text>`;
+
+    }
+
+    if(hdr.composer){
+
+      s+=`<text x="745" y="148" text-anchor="end" font-family="Helvetica,Arial,sans-serif" font-size="15" fill="#222">${esc(hdr.composer)}</text>`;
+
+    }
+
+  }
+
+  s+=content;
+
+  if(showFooter&&hdr.footer){
+
+    s+=`<text x="408" y="${H-30}" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-style="italic" font-size="14" fill="#222">${esc(hdr.footer)}</text>`;
+
+  }
+
+  return `
+    <div class="print-page">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           viewBox="0 0 816 ${H}"
+           width="816"
+           height="${H}">
+        <rect width="816" height="${H}" fill="#fff"/>
+        ${s}
+      </svg>
+    </div>
+  `;
+
+}
+
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+
+function render(){
+
+  const {
+    hdr,
+    systems,
+    fin
+  }=parse($('src').value);
+
+  const o={
+    fing:$('fing').checked,
+    lett:$('lett').checked
+  };
+
+  const hasLH=
+    systems.some(
+      s=>s.lh&&s.lh.trim()
+    );
+
+
+  const pages=[];
+
+  let pageContent='',
+      y=165,
+      pageNumber=0;
+
+
+  systems.forEach((sys,i)=>{
+
+    /*
+      PAGEBREAK starts the following system
+      on a new printed page.
+    */
+
+    if(sys.pageBreakBefore && pageContent){
+
+      pages.push({
+        content:pageContent,
+        H:1056
+      });
+
+      pageContent='';
+      y=165;
+      pageNumber++;
+
+    }
+
+
+    const r=system(
+      sys,
+      y,
+      fin&&i===systems.length-1,
+      o,
+      hasLH
+    );
+
+    pageContent+=r.svg;
+    y+=r.h;
+
+  });
+
+
+  /*
+    Always create the final page.
+  */
+
+  if(pageContent||!pages.length){
+
+  pages.push({
+    content:pageContent,
+    H:1055
+  });
+
+}
+
+
+  /*
+    Header belongs on the first page.
+    Footer belongs on the last page.
+  */
+
+  let html='';
+
+  pages.forEach((p,i)=>{
+
+    html+=makePage(
+      p.content,
+      p.H,
+      hdr,
+      i===0,
+      i===pages.length-1
+    );
+
+  });
+
+
+  $('page').innerHTML=html;
+
+}
+
+
+/* =========================================================
+   SAFE RENDER
+   ========================================================= */
+
+function safeRender(){
+
+  try{
+
+    render();
+
+    $('err').textContent='';
+
+  }
+
+  catch(e){
+
+    $('err').textContent=
+      'Check your syntax: '+e.message;
+
+  }
+
+}
+
+
+/* =========================================================
+   DOWNLOAD
+   ========================================================= */
+
+function dl(name,href){
+
+  const a=document.createElement('a');
+
+  a.href=href;
+  a.download=name;
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  a.remove();
+
+}
+
+
+function svgStr(){
+
+  const sheets=$('page').querySelectorAll('svg');
+
+  if(sheets.length===1){
+
+    return new XMLSerializer()
+      .serializeToString(sheets[0]);
+
+  }
+
+  /*
+    SVG export with multiple manual pages:
+    combine all page SVGs vertically into one SVG.
+  */
+
+  let totalH=0,
+      contents='';
+
+  sheets.forEach(svg=>{
+
+    const h=svg.viewBox.baseVal.height;
+
+    contents+=`
+      <g transform="translate(0 ${totalH})">
+        ${svg.innerHTML}
+      </g>
+    `;
+
+    totalH+=h;
+
+  });
+
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg"
+         viewBox="0 0 816 ${totalH}"
+         width="816"
+         height="${totalH}">
+      ${contents}
+    </svg>
+  `;
+
+}
+
+
+/* =========================================================
+   INITIALIZE
+   ========================================================= */
+
+$('src').value=EX.nick;
+
+
+$('ex').onchange=()=>{
+
+  $('src').value=EX[$('ex').value];
+
+  safeRender();
+
+};
+
+
+['src','fing','lett'].forEach(id=>{
+
+  $(id).addEventListener(
+    'input',
+    safeRender
+  );
+
+});
+
+
+$('bPrint').onclick=()=>window.print();
+
+
+$('bSvg').onclick=()=>{
+
+  dl(
+    'primer-piano.svg',
+    'data:image/svg+xml;charset=utf-8,'+
+    encodeURIComponent(svgStr())
+  );
+
+};
+
+
+$('bPng').onclick=()=>{
+
+  const img=new Image();
+
+  const sv=$('page').querySelector('svg');
+
+  const w=816*2;
+
+  const h=
+    sv.viewBox.baseVal.height*2;
+
+
+  img.onload=()=>{
+
+    const c=document.createElement('canvas');
+
+    c.width=w;
+    c.height=h;
+
+    const g=c.getContext('2d');
+
+    g.fillStyle='#fff';
+    g.fillRect(0,0,w,h);
+
+    g.drawImage(
+      img,
+      0,
+      0,
+      w,
+      h
+    );
+
+    dl(
+      'primer-piano.png',
+      c.toDataURL('image/png')
+    );
+
+  };
+
+
+  img.src=
+    'data:image/svg+xml;charset=utf-8,'+
+    encodeURIComponent(
+      new XMLSerializer()
+        .serializeToString(sv)
+    );
+
+};
+
+
+safeRender();
+
+</script>
+
+</body>
+</html>
